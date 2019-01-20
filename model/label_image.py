@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
-import cv2
+
 import numpy as np
 import tensorflow as tf
 
@@ -71,24 +71,19 @@ def load_labels(label_file):
     label.append(l.rstrip())
   return label
 
-def get_topk(result_file):
-  lines = result_file.readlines()
-  topk = lines[1::3]
-  classes = []
-  for i in range(len(topk)):
-    classes.append(topk[i].split(None,1)[0])
-  return classes
 
-def classify_image(image):
-    file_name = image
-    model_file = "/home/pi/output_graph.pb"
-    label_file = "/home/pi/ShareStation-HH/model/output_labels.txt"
-    input_height = 299
-    input_width = 299
-    input_mean = 0
-    input_std = 255
+if __name__ == "__main__":
+  file_name = "tensorflow/examples/label_image/data/grace_hopper.jpg"
+  model_file = \
+    "tensorflow/examples/label_image/data/inception_v3_2016_08_28_frozen.pb"
+  label_file = "tensorflow/examples/label_image/data/imagenet_slim_labels.txt"
+  input_height = 299
+  input_width = 299
+  input_mean = 0
+  input_std = 255
+  input_layer = "input"
+  output_layer = "InceptionV3/Predictions/Reshape_1"
 
-    '''
   parser = argparse.ArgumentParser()
   parser.add_argument("--image", help="image to be processed")
   parser.add_argument("--graph", help="graph/model to be executed")
@@ -119,35 +114,27 @@ def classify_image(image):
     input_layer = args.input_layer
   if args.output_layer:
     output_layer = args.output_layer
-    '''
-    graph = load_graph(model_file)
-    t = read_tensor_from_image_file(
-        file_name,
-        input_height=input_height,
-        input_width=input_width,
-        input_mean=input_mean,
-        input_std=input_std)
 
-    input_name = "import/" + "Placeholder"
-    output_name = "import/" + "final_result"
-    input_operation = graph.get_operation_by_name(input_name)
-    output_operation = graph.get_operation_by_name(output_name)
+  graph = load_graph(model_file)
+  t = read_tensor_from_image_file(
+      file_name,
+      input_height=input_height,
+      input_width=input_width,
+      input_mean=input_mean,
+      input_std=input_std)
 
-    with tf.Session(graph=graph) as sess:
-        results = sess.run(output_operation.outputs[0], {
-        input_operation.outputs[0]: t})
-    results = np.squeeze(results)
+  input_name = "import/" + input_layer
+  output_name = "import/" + output_layer
+  input_operation = graph.get_operation_by_name(input_name)
+  output_operation = graph.get_operation_by_name(output_name)
 
-    top_k = results.argsort()[-5:][::-1]
-    labels = load_labels(label_file)
-    for i in top_k:
-        print(labels[i], results[i])
-    top = labels[0],results[0] 
-    return top
+  with tf.Session(graph=graph) as sess:
+    results = sess.run(output_operation.outputs[0], {
+        input_operation.outputs[0]: t
+    })
+  results = np.squeeze(results)
 
-cam = cv2.VideoCapture(0)
-s, im = cam.read()
-cv2.imshow("image", im)
-cv2.imwrite("im.JPG", im)
-#print(classify_image("/home/pi/IMG_0052.JPG"))
-print(classify_image("/home/pi/ShareStation-HH/im.JPG"))
+  top_k = results.argsort()[-5:][::-1]
+  labels = load_labels(label_file)
+  for i in top_k:
+    print(labels[i], results[i])
